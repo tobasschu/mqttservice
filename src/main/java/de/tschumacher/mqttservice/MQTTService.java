@@ -13,8 +13,21 @@
  */
 package de.tschumacher.mqttservice;
 
+import de.tschumacher.mqttservice.consumer.MQTTMessageHandler;
+import de.tschumacher.mqttservice.message.MQTTMessage;
 
-public interface MQTTService {
+
+public interface MQTTService<F> {
+
+  void connect();
+
+  void disconnect();
+
+  void subscribe(String topic, MQTTMessageHandler<F> handler);
+
+  void unsubscribe(String topic);
+
+  void publish(String topic, MQTTMessage<F> message);
 
 
 
