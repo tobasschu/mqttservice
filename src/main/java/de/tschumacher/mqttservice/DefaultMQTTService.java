@@ -50,11 +50,16 @@ public class DefaultMQTTService<F> implements MQTTService<F> {
   }
 
   public DefaultMQTTService(String broker, String clientId,
+      MQTTMessageConsumer<F> mqttMessageConsumer) {
+    this(broker, clientId, mqttMessageConsumer, null);
+  }
+
+  public DefaultMQTTService(String broker, String clientId,
       MQTTMessageConsumer<F> mqttMessageConsumer, MQTTServiceConnectionHandler connectionHandler) {
     this.broker = broker;
     this.clientId = clientId;
     this.mqttMessageConsumer = mqttMessageConsumer;
-    this.connectionHandler = connectionHandler;
+    this.setConnectionHandler(connectionHandler);
   }
 
   @Override
@@ -150,7 +155,9 @@ public class DefaultMQTTService<F> implements MQTTService<F> {
 
       @Override
       public void connectionLost(Throwable cause) {
-        DefaultMQTTService.this.connectionHandler.connectionLost(cause);
+        if (DefaultMQTTService.this.connectionHandler != null) {
+          DefaultMQTTService.this.connectionHandler.connectionLost(cause);
+        }
       }
     };
   }
@@ -168,6 +175,12 @@ public class DefaultMQTTService<F> implements MQTTService<F> {
       this.client = new MqttClient(this.broker, this.clientId);
     }
     return this.client;
+  }
+
+
+
+  public void setConnectionHandler(MQTTServiceConnectionHandler connectionHandler) {
+    this.connectionHandler = connectionHandler;
   }
 
 }
