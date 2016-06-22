@@ -19,24 +19,21 @@ import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import de.tschumacher.mqttservice.consumer.MQTTMessageConsumer;
 import de.tschumacher.mqttservice.consumer.MQTTMessageHandler;
 import de.tschumacher.mqttservice.exception.MQTTServiceException;
+import de.tschumacher.mqttservice.handler.MQTTServiceConnectionHandler;
 import de.tschumacher.mqttservice.message.MQTTMessage;
-import de.tschumacher.mqttservice.message.MQTTMessageFactory;
-import de.tschumacher.mqttservice.message.coder.StringMQTTCoder;
 
 
 public class DefaultMQTTService<F> implements MQTTService<F> {
-  private static final Logger logger = LoggerFactory.getLogger(DefaultMQTTService.class);
   private static final boolean CLEAN_SESSION = true;
   private final String broker;
   private final String clientId;
   private final MQTTMessageConsumer<F> mqttMessageConsumer;
   private MqttClient client;
+  private MQTTServiceConnectionHandler connectionHandler;
 
 
   // FOR TESTING
@@ -49,25 +46,26 @@ public class DefaultMQTTService<F> implements MQTTService<F> {
   }
 
   public DefaultMQTTService(String broker, String clientId) {
-    this(broker, clientId, null);
+    this(broker, clientId, null, null);
   }
 
   public DefaultMQTTService(String broker, String clientId,
-      MQTTMessageConsumer<F> mqttMessageConsumer) {
+      MQTTMessageConsumer<F> mqttMessageConsumer, MQTTServiceConnectionHandler connectionHandler) {
     this.broker = broker;
     this.clientId = clientId;
     this.mqttMessageConsumer = mqttMessageConsumer;
+    this.connectionHandler = connectionHandler;
   }
 
   @Override
   public void connect() {
     try {
-      MqttClient mqttClient = getClient();
+      final MqttClient mqttClient = getClient();
       if (!mqttClient.isConnected()) {
         mqttClient.setCallback(createCallback());
         mqttClient.connect(createOptions());
       }
-    } catch (MqttException e) {
+    } catch (final MqttException e) {
       throw new MQTTServiceException(e);
     }
   }
@@ -75,11 +73,11 @@ public class DefaultMQTTService<F> implements MQTTService<F> {
   @Override
   public void disconnect() {
     try {
-      MqttClient mqttClient = getClient();
+      final MqttClient mqttClient = getClient();
       if (mqttClient.isConnected()) {
         mqttClient.disconnect();
       }
-    } catch (MqttException e) {
+    } catch (final MqttException e) {
       throw new MQTTServiceException(e);
     }
 
@@ -88,10 +86,10 @@ public class DefaultMQTTService<F> implements MQTTService<F> {
   @Override
   public void subscribe(String topic, MQTTMessageHandler<F> handler) {
     try {
-      MqttClient mqttClient = getClient();
+      final MqttClient mqttClient = getClient();
       addHandler(topic, handler);
       mqttClient.subscribe(topic);
-    } catch (MqttException e) {
+    } catch (final MqttException e) {
       throw new MQTTServiceException(e);
     }
   }
@@ -99,10 +97,10 @@ public class DefaultMQTTService<F> implements MQTTService<F> {
   @Override
   public void unsubscribe(String topic) {
     try {
-      MqttClient mqttClient = getClient();
+      final MqttClient mqttClient = getClient();
       mqttClient.unsubscribe(topic);
       removeHandler(topic);
-    } catch (MqttException e) {
+    } catch (final MqttException e) {
       throw new MQTTServiceException(e);
     }
   }
@@ -111,9 +109,9 @@ public class DefaultMQTTService<F> implements MQTTService<F> {
   @Override
   public void publish(String topic, MQTTMessage<F> message) {
     try {
-      MqttClient mqttClient = getClient();
+      final MqttClient mqttClient = getClient();
       mqttClient.publish(topic, createMessage(message));
-    } catch (MqttException e) {
+    } catch (final MqttException e) {
       throw new MQTTServiceException(e);
     }
   }
@@ -123,13 +121,15 @@ public class DefaultMQTTService<F> implements MQTTService<F> {
   }
 
   private void addHandler(String topic, MQTTMessageHandler<F> handler) {
-    if (mqttMessageConsumer != null)
-      mqttMessageConsumer.addHandler(topic, handler);
+    if (this.mqttMessageConsumer != null) {
+      this.mqttMessageConsumer.addHandler(topic, handler);
+    }
   }
 
   private void removeHandler(String topic) {
-    if (mqttMessageConsumer != null)
-      mqttMessageConsumer.removeHandler(topic);
+    if (this.mqttMessageConsumer != null) {
+      this.mqttMessageConsumer.removeHandler(topic);
+    }
 
   }
 
@@ -138,8 +138,9 @@ public class DefaultMQTTService<F> implements MQTTService<F> {
 
       @Override
       public void messageArrived(String topic, MqttMessage message) throws Exception {
-        if (mqttMessageConsumer != null)
-          mqttMessageConsumer.receive(topic, message);
+        if (DefaultMQTTService.this.mqttMessageConsumer != null) {
+          DefaultMQTTService.this.mqttMessageConsumer.receive(topic, message);
+        }
       }
 
       @Override
@@ -149,52 +150,24 @@ public class DefaultMQTTService<F> implements MQTTService<F> {
 
       @Override
       public void connectionLost(Throwable cause) {
-        logger.error("mqtt connection lost", cause);
+        DefaultMQTTService.this.connectionHandler.connectionLost(cause);
       }
     };
   }
 
 
   private MqttConnectOptions createOptions() {
-    MqttConnectOptions connOpts = new MqttConnectOptions();
+    final MqttConnectOptions connOpts = new MqttConnectOptions();
     connOpts.setCleanSession(CLEAN_SESSION);
     return connOpts;
   }
 
 
   private MqttClient getClient() throws MqttException {
-    if (client == null) {
-      client = new MqttClient(broker, clientId);
+    if (this.client == null) {
+      this.client = new MqttClient(this.broker, this.clientId);
     }
-    return client;
+    return this.client;
   }
 
-  public static void main(String[] args) {
-    MQTTMessageConsumer<String> mqttMessageConsumer = new MQTTMessageConsumer<String>();
-    DefaultMQTTService<String> mqttService =
-        new DefaultMQTTService<String>("tcp://server.closelink.net:1883", "client",
-            mqttMessageConsumer);
-    mqttService.connect();
-    final MQTTMessageFactory<String> mqttMessageFactory =
-        new MQTTMessageFactory<String>(new StringMQTTCoder());
-    MQTTMessageHandler<String> handler = new MQTTMessageHandler<String>() {
-
-      @Override
-      public void messageArrived(MQTTMessage<String> message) {
-        System.out.println(message.getContent());
-      }
-
-      @Override
-      public MQTTMessageFactory<String> getCoder() {
-        return mqttMessageFactory;
-      }
-    };
-    String topic = "/top";
-    mqttService.subscribe(topic, handler);
-    mqttService.publish(topic, mqttMessageFactory.createMessage("mega test"));
-    while (true) {
-
-    }
-    // mqttService.disconnect();
-  }
 }
