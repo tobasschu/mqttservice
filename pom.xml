@@ -2,7 +2,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>de.tschumacher</groupId>
 	<artifactId>mqttservice</artifactId>
-	<version>0.0.4-SNAPSHOT</version>
+	<version>0.0.4</version>
 	<packaging>jar</packaging>
 
 	<name>mqttservice</name>
@@ -31,7 +31,7 @@
 	<scm>
 		<connection>scm:git:git@github.com:tobasschu/mqttservice.git</connection>
 		<url>https://github.com/tobasschu/mqttservice.git</url>
-		<tag>master</tag>
+		<tag>mqttservice-0.0.4</tag>
 	</scm>
 
 
